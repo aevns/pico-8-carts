@@ -1,6 +1,6 @@
 # PICO-8 Carts
 
-Carts and forum threads can also be found on [**the lexaloffle forums**](https://www.lexaloffle.com/bbs/?uid=34308).
+Playable carts and forum threads can also be found on [**the lexaloffle forums**](https://www.lexaloffle.com/bbs/?uid=34308).
 
 ## UNYIELDING (*work in progress*)
 My first time working with PICO-8, this cart is meant as a proof-of-concept for a combat system I've been cooking up. The design is inspired by what I most enjoy about Soulslike combat mechanics; slow, strategic combat that forces the player to think one or two steps ahead. With that said, combat in the Souls series has a number of shortcomings — which I won't go into detail on here.

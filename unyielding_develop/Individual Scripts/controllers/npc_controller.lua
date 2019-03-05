@@ -27,7 +27,7 @@ function update_npcs()
     end
 end
 
-function npc:update()
+function npc_controller:update()
     -- replace this part; gotta use better scoping
     if not contains(active_agents, self.agent) then
         del(active_npcs, self)
@@ -48,7 +48,7 @@ function npc:update()
     coresume(self.agent.state)
 end
 
-function npc:seek_foes()
+function npc_controller:seek_foes()
     local nearest = self.range
     self.active_target = nil
 
@@ -61,7 +61,7 @@ function npc:seek_foes()
     end
 end
 
-function npc:choose_movement()
+function npc_controller:choose_movement()
     self.agent.ax = 0
     self.agent.ay = 0
     if self.target and
@@ -72,7 +72,7 @@ function npc:choose_movement()
     end
 end 
 
-function npc:choose_maneuver()
+function npc_controller:choose_maneuver()
     local act = self.active_target and
         rnd(60) <= self.liveliness and (
             min(

@@ -3,7 +3,7 @@ player_controller = class:new({
     agent = nil
 })
 
-function player:update()
+function player_controller:update()
     if not self.agent.state then
         self.agent.state = cocreate(
             function()

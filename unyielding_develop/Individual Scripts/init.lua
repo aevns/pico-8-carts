@@ -13,6 +13,9 @@ function gameplay_init()
 
     active_npcs = spawn_all_npcs()
     active_player = spawn_player(21, 12)
+    active_view = view:new({
+        target = active_player.agent
+    })
 
     active_effects = {}
 
@@ -43,17 +46,17 @@ end
 
 function spawn_player(x, y)
     local p = agent:new({x = x, y = y})
-    return player:new({agent = p})
+    return player_controller:new({agent = p})
 end
 
 function spawn_all_npcs()
     local npcs
-    for k,v in pairs(spawn_agents(shade, npc_controller)) do table.insert(npcs, v) end
-    for k,v in pairs(spawn_agents(skeleton, npc_controller)) do table.insert(npcs, v) end
-    for k,v in pairs(spawn_agents(knight, npc_controller)) do table.insert(npcs, v) end
-    for k,v in pairs(spawn_agents(giant_bat, npc_controller)) do table.insert(npcs, v) end
-    for k,v in pairs(spawn_agents(skulltula, npc_controller)) do table.insert(npcs, v) end
-    for k,v in pairs(spawn_agents(golem, npc_controller)) do table.insert(npcs, v) end
+    for k,v in pairs(spawn_agents(shade, npc_controller)) do add(npcs, v) end
+    for k,v in pairs(spawn_agents(skeleton, npc_controller)) do add(npcs, v) end
+    for k,v in pairs(spawn_agents(knight, npc_controller)) do add(npcs, v) end
+    for k,v in pairs(spawn_agents(giant_bat, npc_controller)) do add(npcs, v) end
+    for k,v in pairs(spawn_agents(skulltula, npc_controller)) do add(npcs, v) end
+    for k,v in pairs(spawn_agents(golem, npc_controller)) do add(npcs, v) end
     return npcs
 end
 

@@ -1,4 +1,4 @@
--- agents --
+-- agent --
 agent = class:new({
     sprite = 16,
     size = 1,

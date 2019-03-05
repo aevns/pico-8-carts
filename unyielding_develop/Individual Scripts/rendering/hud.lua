@@ -1,15 +1,15 @@
 -- hud elements --
 
 function draw_hp_bar()
-    local sx0 = active_player.x * 8 - 8 * 4
-    local sy0 = active_player.y * 8 - 8 * 8
+    local sx0 = active_view.x * 8 - 8 * 4
+    local sy0 = active_view.y * 8 - 8 * 8
 
     spr(3, sx0, sy0)
     for i = 1, 6 do
-        if active_player.hp / i >= 1 then
+        if active_player.agent.hp / i >= 1 then
             spr(8, sx0 + 8 * i, sy0)
-        elseif active_player.hp / (i - 1) >= 1 then
-            spr(4 + 4 * active_player.hp%1, sx0 + 8 * i, sy0)
+        elseif active_player.agent.hp / (i - 1) >= 1 then
+            spr(4 + 4 * active_player.agent.hp%1, sx0 + 8 * i, sy0)
         else
             spr(4, sx0 + 8 * i, sy0)
         end
@@ -21,7 +21,7 @@ function draw_main_menu()
     if frame_count == 10 then
         poke(0x4300, peek(0x4300) + 1)
     end
-    srand(active_player.x)
+    srand(active_view.x)
 
     local death_status = (frame_count > 60) and (
         (active_miniboss[1] == nil) and "victory, for now.\nbut debris seems to\nbe blocking your path..."
@@ -54,9 +54,9 @@ function draw_main_menu()
 
     local death_message = death_status .. death_greeting .. death_tip .. play_again
 
-    print(death_message, -40 + active_player.x * 8 + 1, -20 + active_player.y * 8, 8)
-    print(death_message, -40 + active_player.x * 8, -20 + active_player.y * 8 + 1, 0)
-    print(death_message, -40 + active_player.x * 8, -20 + active_player.y * 8, 10)
+    print(death_message, -40 + active_view.x * 8 + 1, -20 + active_view.y * 8, 8)
+    print(death_message, -40 + active_view.x * 8, -20 + active_view.y * 8 + 1, 0)
+    print(death_message, -40 + active_view.x * 8, -20 + active_view.y * 8, 10)
 end
 
 function draw_system_info()
@@ -75,7 +75,7 @@ function draw_system_info()
     end
     coresume(stat_counter)
     
-    print(memstat, active_player.x * 8 - 59, active_player.y * 8 + 63 - 18, 4)
-    print(memstat, active_player.x * 8 - 60, active_player.y * 8 + 63 - 17, 0)
-    print(memstat, active_player.x * 8 - 60, active_player.y * 8 + 63 - 18, 10)
+    print(memstat, active_view.x * 8 - 59, active_view.y * 8 + 63 - 18, 4)
+    print(memstat, active_view.x * 8 - 60, active_view.y * 8 + 63 - 17, 0)
+    print(memstat, active_view.x * 8 - 60, active_view.y * 8 + 63 - 18, 10)
 end

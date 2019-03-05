@@ -1,11 +1,6 @@
 pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
--- unyielding
--- by ae
-
--- utilities --
-
 -- inheritance system --
 class = {}
 
@@ -33,16 +28,6 @@ function class:is_child_of(instance)
     return false
 end
 
--- table checks --
-function contains(table, item)
-    for i in all(table) do
-        if i == item then
-            return true
-        end
-    end
-    return false
-end
-
 -- input --
 input = {0,0,0,0,0,0}
 
@@ -60,16 +45,17 @@ function late_update_input()
     end
 end
 
--- more yield options, (currently unused) --
-function yield_for_time(wait_time)
-    local start_time = time()
-    while time() <= start_time + wait_time do
-        yield()
+-- table checks --
+function contains(table, item)
+    for i in all(table) do
+        if i == item then
+            return true
+        end
     end
+    return false
 end
 
--- sprite overlap detection --
--- measuring distances using map units
+-- entity overlap detection --
 function overlapping(a, b)
     local a_size = a.size or 1
     local b_size = b.size or 1
@@ -82,7 +68,6 @@ function overlapping(a, b)
 end
 
 -- supercover raycasting --
-
 function ray_test(a, b, flags)
     flags = flags or 1
     
@@ -118,7 +103,7 @@ function ray_test(a, b, flags)
     return true
 end
 
--- one of the closest, fastest approximations possible using rnd[x]
+-- approximate normal sample with mean 0
 function rnd_nrml(std)
     local x = -3*std
     for i = 1, 3 do
@@ -127,18 +112,7 @@ function rnd_nrml(std)
     return x
 end
 -->8
--- maneuvers --
-stance = class:new({
-    aura = nil,
-    move_speed = nil,
-    duration = 1,
-
-    attack_ready = nil,
-    attack = nil,
-    hold = nil,
-    evade_ready = nil,
-    evade = nil
-})
+-- actions --
 
 action = class:new({
     sprite = nil,
@@ -149,15 +123,6 @@ action = class:new({
     force = 0,
     stability = 0
 })
-
--- base stances --
-default_stance = stance:new()
-attack_stance = stance:new()
-attack_stance_2 = stance:new()
-guard_stance = stance:new()
-guard_stance_2 = stance:new()
-evade_stance = stance:new()
-evade_stance_2 = stance:new()
 
 -- base actions --
 stunned = action:new()
@@ -170,73 +135,6 @@ block = action:new()
 block_2 = action:new()
 bash = action:new()
 bash_2 = action:new()
-
--- base stance definitions --
-default_stance:set({
-    aura = 0,
-    attack_ready = attack_stance,
-    evade_ready = evade_stance
-})
-
-attack_stance:set({
-    aura = 2,
-    move_speed = 0,
-    duration = 30,
-
-    attack = strike,
-    hold = attack_stance_2,
-    evade_ready = guard_stance
-})
-
-attack_stance_2:set({
-    aura = 8,
-    move_speed = 0,
-    duration = 60,
-
-    attack = strike_2,
-    hold = strike_2,
-    evade_ready = guard_stance
-})
-
-guard_stance:set({
-    aura = 3,
-    move_speed = 0,
-    duration = 30,
-
-    attack = bash,
-    hold = guard_stance_2,
-    evade = block
-})
-
-guard_stance_2:set({
-    aura = 11,
-    move_speed = 0,
-    duration = 60,
-
-    attack = bash_2,
-    hold = block_2,
-    evade = block
-})
-
-evade_stance:set({
-    aura = 1,
-    move_speed = 0,
-    duration = 30,
-
-    attack_ready = guard_stance,
-    hold = evade_stance_2,
-    evade = dash
-})
-
-evade_stance_2:set({
-    aura = 12,
-    move_speed = 0,
-    duration = 60,
-
-    attack_ready = guard_stance,
-    hold = dash_strike_2,
-    evade = dash_strike
-})
 
 -- base action definitions --
 stunned:set({
@@ -339,6 +237,95 @@ bash_2:set({
     stability = 2
 })
 
+-- stances --
+stance = class:new({
+    aura = nil,
+    move_speed = nil,
+    duration = 1,
+
+    attack_ready = nil,
+    attack = nil,
+    hold = nil,
+    evade_ready = nil,
+    evade = nil
+})
+
+-- stances --
+default_stance = stance:new()
+attack_stance = stance:new()
+attack_stance_2 = stance:new()
+guard_stance = stance:new()
+guard_stance_2 = stance:new()
+evade_stance = stance:new()
+evade_stance_2 = stance:new()
+
+-- stance definitions --
+default_stance:set({
+    aura = 0,
+    attack_ready = attack_stance,
+    evade_ready = evade_stance
+})
+
+attack_stance:set({
+    aura = 2,
+    move_speed = 0,
+    duration = 30,
+
+    attack = strike,
+    hold = attack_stance_2,
+    evade_ready = guard_stance
+})
+
+attack_stance_2:set({
+    aura = 8,
+    move_speed = 0,
+    duration = 60,
+
+    attack = strike_2,
+    hold = strike_2,
+    evade_ready = guard_stance
+})
+
+guard_stance:set({
+    aura = 3,
+    move_speed = 0,
+    duration = 30,
+
+    attack = bash,
+    hold = guard_stance_2,
+    evade = block
+})
+
+guard_stance_2:set({
+    aura = 11,
+    move_speed = 0,
+    duration = 60,
+
+    attack = bash_2,
+    hold = block_2,
+    evade = block
+})
+
+evade_stance:set({
+    aura = 1,
+    move_speed = 0,
+    duration = 30,
+
+    attack_ready = guard_stance,
+    hold = evade_stance_2,
+    evade = dash
+})
+
+evade_stance_2:set({
+    aura = 12,
+    move_speed = 0,
+    duration = 60,
+
+    attack_ready = guard_stance,
+    hold = dash_strike_2,
+    evade = dash_strike
+})
+
 -- enemy stances --
 skeleton_stance = stance:new()
 skeleton_attack = stance:new()
@@ -354,11 +341,6 @@ skulltula_attack = stance:new()
 
 golem_stance = stance:new()
 golem_attack = stance:new()
-
-foureyes_stance_1 = stance:new()
-foureyes_stance_2 = stance:new()
-
--- enemy actions --
 
 -- enemy stance definitions --
 skeleton_stance:set({
@@ -429,9 +411,8 @@ golem_attack:set({
     evade = bash,
     hold = bash_2
 })
--- enemy action definitions --
 -->8
--- agents --
+-- agent --
 agent = class:new({
     sprite = 16,
     size = 1,
@@ -685,8 +666,6 @@ end
 
 -- agent type definitions --
 
-player = agent:new()
-
 shade = agent:new({
     sprite = 21,
 })
@@ -728,36 +707,39 @@ golem = agent:new({
     hp = 3,
     defense = 1,
     base_speed = 1/32,
-    base_stance = golem_stance
+    base_stance = golem_stance,
 })
+
+-- agent function overrides --
 -->8
--- controllers --
-
 -- player controller--
+player_controller = class:new({
+    agent = nil
+})
 
-function update_player()
-    if not active_player.state then
-        active_player.state = cocreate(
+function player_controller:update()
+    if not self.agent.state then
+        self.agent.state = cocreate(
             function()
-                active_player:execute()
+                self.agent:execute()
             end
         )
     end
 
-    active_player.attack_ready = btn(4)
-    active_player.attack = btnu(4)
-    active_player.evade_ready = btn(5)
-    active_player.evade = btnu(5)
+    self.agent.attack_ready = btn(4)
+    self.agent.attack = btnu(4)
+    self.agent.evade_ready = btn(5)
+    self.agent.evade = btnu(5)
 
     local x = (btn(1) and 1 or 0) - (btn(0) and 1 or 0)
     local y = (btn(3) and 1 or 0) - (btn(2) and 1 or 0)
-    active_player:direct(x, y)
+    self.agent:direct(x, y)
 
-    coresume(active_player.state)
+    coresume(self.agent.state)
 end
 
 -- npc controller --
-npc = class:new({
+npc_controller = class:new({
     agent = nil,
     foes = {},
     target = nil,
@@ -773,10 +755,11 @@ npc = class:new({
     -- controls likelyhood of attack
     aggression = 5,
     -- controls likelyhood of readying evade
-    discretion = 5, -- discipline?
+    discretion = 5,
     -- controls likelyhood of evade
     agility = 6
 })
+setmetatable(npc_controller.foes, { __mode = 'v' })
 
 function update_npcs()
     for instance in all(active_npcs) do
@@ -784,24 +767,8 @@ function update_npcs()
     end
 end
 
-function update_npc(instance)
-
-    if not instance.agent.state then
-        instance.agent.state = cocreate(
-        function()
-            instance.agent:execute()
-        end
-        )
-    end
-    
-    instance:seek_foes()
-    instance:choose_maneuver()
-    instance:choose_movement()
-
-    coresume(instance.agent.state)
-end
-
-function npc:update()
+function npc_controller:update()
+    -- replace this part; gotta use better scoping
     if not contains(active_agents, self.agent) then
         del(active_npcs, self)
     end
@@ -821,7 +788,7 @@ function npc:update()
     coresume(self.agent.state)
 end
 
-function npc:seek_foes()
+function npc_controller:seek_foes()
     local nearest = self.range
     self.active_target = nil
 
@@ -834,7 +801,7 @@ function npc:seek_foes()
     end
 end
 
-function npc:choose_movement()
+function npc_controller:choose_movement()
     self.agent.ax = 0
     self.agent.ay = 0
     if self.target and
@@ -845,51 +812,104 @@ function npc:choose_movement()
     end
 end 
 
-function npc:choose_maneuver()
+function npc_controller:choose_maneuver()
     local act = self.active_target and
         rnd(60) <= self.liveliness and (
             min(
                 abs(self.target.x - self.agent.x),
                 abs(self.target.y - self.agent.y)
             ) < self.attack_range or
-            rnd(100) <= self.aggression
+            rnd(60) <= self.liveliness
         )
-    self.agent.attack_ready = act and rnd(20) <= self.tenacity
-    self.agent.attack = act and rnd(20) <= self.aggression
-    self.agent.evade_ready = act and rnd(20) <= self.discretion
-    self.agent.evade = act and rnd(20) <= self.agility
+    self.agent.attack_ready = act and rnd(60) <= self.tenacity
+    self.agent.attack = act and rnd(60) <= self.aggression
+    self.agent.evade_ready = act and rnd(60) <= self.discretion
+    self.agent.evade = act and rnd(60) <= self.agility
+end
+-->8
+-- persistent data handling --
+persistent_state = class:new({
+    state_addr = nil;
+})
+
+function persistent_state:set(state)
+    state = state or 1
+    poke(state_addr, state)
 end
 
-shade_ai = npc:new()
--->8
+function persistent_state:toggle()
+    poke(state_addr, 1 - peek(state_addr))
+end
+
+function persistent_state:get()
+    peek(state_addr)
+end
+
+-- persistent states --
+game_state = persistent_state:new({
+    state_addr = 0x4300
+})
+
+run_number = persistent_state:new({
+    state_addr = 0x4301
+})
+
+music_state = persistent_state:new({
+    state_addr = 0x4302
+})
+
+view = class:new({
+    target = nil,
+    x = 0,
+    y = 0,
+    x_buffer = {},
+    y_buffer = {},
+    smoothness = 10,
+    delay = 25,
+    frame_index = 0
+})
+
+function view:update()
+    self.frame_index += 1
+    local frame = 1 + self.frame_index%self.delay
+    local old_frame = 1 + (self.frame_index - self.smoothness)%self.delay
+
+    self.x -= (self.x_buffer[old_frame] or 0) / self.smoothness
+    self.x_buffer[old_frame] = self.target.x
+    self.x += (self.x_buffer[frame] or 0) / self.smoothness
+
+    self.y -= (self.y_buffer[old_frame] or 0) / self.smoothness
+    self.y_buffer[old_frame] = self.target.y
+    self.y += (self.y_buffer[frame] or 0) / self.smoothness
+end
+
 -- initialization --
 
 function _init()
-    poke(0x4300, 0) --temporary solution, wanted a working death menu
-    poke(0x4301, 1) -- is music active
-    init_run()
+    if run_number:get() == 0 then
+        music_state:set(1)
+    end
+    gameplay_init()
 end
 
-function init_run()
-        -- update call init --
-    game_state = "running"
+function gameplay_init()
     frame_count = 0
+    game_state:set(1)
 
-    active_agents = {}
+    active_npcs = spawn_all_npcs()
+    active_player = spawn_player(21, 12)
+    active_view = view:new({
+        target = active_player.agent
+    })
+
     active_effects = {}
 
-    active_player = nil
-    spawn_player()
+    if music_state:get() then
+        music(0, 2000, 3)
+    else
+        music(-1, 0, 0)
+    end
 
-    active_npcs = {}
-    spawn_all_npcs()
-
-				if peek(0x4301) == 1 then
-  				  music(0,1000,3)
-  		else
-  				  music(-1,1000,0)
-				end
-				
     -- draw call init --
     pp_lighting_init(15, 7)
     pp_aura_init(
@@ -899,33 +919,34 @@ function init_run()
     )
 end
 
-function init_menu()
+function menu_init()
     frame_count = 0
-    game_state = "main_menu"
-    if peek(0x4301) == 1 then
-    				music(9,2000,12)
-  		else
-  				  music(-1,1000,0)
-				end
+    game_state:set(0)
+    if music_state:get() == 1 then
+    	music(9, 2000, 12)
+  	else
+  		music(-1, 0, 0)
+	end
 end
 
-function spawn_player()
-    active_player = player:new({x = 21, y = 12})
-    add(active_agents, active_player)
+function spawn_player(x, y)
+    local p = agent:new({x = x, y = y})
+    return player_controller:new({agent = p})
 end
 
 function spawn_all_npcs()
-    spawn_npcs(shade)
-    spawn_npcs(skeleton)
-    spawn_npcs(knight)
-    spawn_npcs(giant_bat)
-    spawn_npcs(skulltula)
-    active_miniboss = spawn_npcs(golem)
-    setmetatable(active_miniboss, { __mode = 'v' })
+    local npcs
+    for k,v in pairs(spawn_agents(shade, npc_controller)) do add(npcs, v) end
+    for k,v in pairs(spawn_agents(skeleton, npc_controller)) do add(npcs, v) end
+    for k,v in pairs(spawn_agents(knight, npc_controller)) do add(npcs, v) end
+    for k,v in pairs(spawn_agents(giant_bat, npc_controller)) do add(npcs, v) end
+    for k,v in pairs(spawn_agents(skulltula, npc_controller)) do add(npcs, v) end
+    for k,v in pairs(spawn_agents(golem, npc_controller)) do add(npcs, v) end
+    return npcs
 end
 
-function spawn_npcs(base_agent)
-    local k_agents = {}
+function spawn_agents(base_agent, base_controller)
+    local k_controllers = {}
     for y = 0, 127 do
         for x = 0, 127 do
             if (mget(x, y) == base_agent.sprite) then
@@ -934,78 +955,68 @@ function spawn_npcs(base_agent)
                     y = y + 0.5
                 })
                 -- todo: create npc subtypes
-                local npc_instance = npc:new({
-                    foes = {active_player},
+                local controller_instance = base_controller:new({
                     agent = agent_instance
                 })
-                add(k_agents, agent_instance)
-                add(active_agents, agent_instance)
-                add(active_npcs, npc_instance)
+                add(k_controllers, controller_instance)
                 mset(x, y, 96)
             end
         end
     end
-    return k_agents
+    return k_controllers
 end
 
 -- menu items --
 menuitem( 1, "toggle music",
-				function()
-								poke(0x4301,1 - peek(0x4301))
-								if peek(0x4301) == 1 then
-  								  music(0,1000,3)
-  						else
-  								  music(-1,0,0)
-								end
-				end
+    function()
+        music_state:toggle();
+        if music_state:get() then
+            music(0, 1000, 3)
+        else
+            music(-1, 0, 3)
+        end
+    end
 )
 -->8
 -- update --
 function _update60()
+    -- early update
     frame_count += 1
-    if game_state == "main_menu" then
-        update_menu()
+    active_effects = {}
+
+    -- standard update
+    if game_state:get() == 0 then
+        gameplay_update()
     else
-        update_run()
+        menu_update()
     end
+
     -- late update
     late_update_input()
 end
 
-function update_menu()
+function menu_update()
     if btn(4) and frame_count > 120 then
         reload()
-        init_run()
+        gameplay_init()
     end
 end
 
-function update_run()
-    -- early update
-    active_effects = {}
+function gameplay_update()
     -- update
-    update_player()
-    update_npcs()
-    if active_miniboss[1] == nil then
-        game_state = "main_menu"
-        init_menu()
-    end
-end
-
-function update_npcs()
+    active_player:update()
     for instance in all(active_npcs) do
         instance:update()
     end
 end
 -->8
 -- draw --
-frame_count = 0
 function _draw()
     cls()
-
     pal()
     set_view()
-    map(0, 0, 0, 0, 127, 127, 0)
 
+    map(0, 0, 0, 0, 127, 127, 0)
     draw_agents()
     draw_effects()
 
@@ -1013,18 +1024,18 @@ function _draw()
     pp_light_aura(rnd(4) + frame_count)
 
     -- ui elements
-    if game_state == "main_menu" then
-        draw_main_menu()
-    else
+    if game_state:get(1) then
         draw_hp_bar()
+    else
+        draw_main_menu()
     end
 end
 
 -- basic draw functions --
 function set_view()
     camera(
-        active_player.x * 8 - 64,
-        active_player.y * 8 - 64
+        active_view.x * 8 - 64,
+        active_view.y * 8 - 64
     )
 end
 
@@ -1032,14 +1043,15 @@ function draw_agents()
     pal()
     palt(0, false)
     palt(15, true)
-    for ag in all(active_agents) do
-        ag:draw_aura()
+    for npc in all(active_npcs) do
+        npc.agent:draw_aura()
     end
+    
     pal()
     palt(0, false)
     palt(15, true)
-    for ag in all(active_agents) do
-        ag:draw()
+    for npc in all(active_npcs) do
+        npc.agent:draw()
     end
 end
 
@@ -1176,16 +1188,17 @@ function pp_light_aura_quadrant(flip_x, flip_y, frame_offset)
 end
 
 -- hud elements --
+
 function draw_hp_bar()
-    local sx0 = active_player.x * 8 - 8 * 4
-    local sy0 = active_player.y * 8 - 8 * 8
+    local sx0 = active_view.x * 8 - 8 * 4
+    local sy0 = active_view.y * 8 - 8 * 8
 
     spr(3, sx0, sy0)
     for i = 1, 6 do
-        if active_player.hp / i >= 1 then
+        if active_player.agent.hp / i >= 1 then
             spr(8, sx0 + 8 * i, sy0)
-        elseif active_player.hp / (i - 1) >= 1 then
-            spr(4 + 4 * active_player.hp%1, sx0 + 8 * i, sy0)
+        elseif active_player.agent.hp / (i - 1) >= 1 then
+            spr(4 + 4 * active_player.agent.hp%1, sx0 + 8 * i, sy0)
         else
             spr(4, sx0 + 8 * i, sy0)
         end
@@ -1193,32 +1206,11 @@ function draw_hp_bar()
     spr(9, sx0 + 8 * 7, sy0)
 end
 
-function draw_system_info()
-    if not stat_counter or costatus(stat_counter) == 'dead' then
-        stat_counter = cocreate(
-            function ()
-                memstat =
-                    stat(7) .. ' fps' .. '\n' ..
-                    'mem usage: ' .. flr(stat(0)/20.48 + 0.5) .. '%' .. '\n' ..
-                    'cpu usage: ' .. flr(stat(1)*100 + 0.5) .. '%'
-                for t = 1, 30 do
-                    yield()
-                end
-            end
-        )
-    end
-    coresume(stat_counter)
-    
-    print(memstat, active_player.x * 8 - 59, active_player.y * 8 + 63 - 18, 4)
-    print(memstat, active_player.x * 8 - 60, active_player.y * 8 + 63 - 17, 0)
-    print(memstat, active_player.x * 8 - 60, active_player.y * 8 + 63 - 18, 10)
-end
-
 function draw_main_menu()
     if frame_count == 10 then
         poke(0x4300, peek(0x4300) + 1)
     end
-    srand(active_player.x)
+    srand(active_view.x)
 
     local death_status = (frame_count > 60) and (
         (active_miniboss[1] == nil) and "victory, for now.\nbut debris seems to\nbe blocking your path..."
@@ -1251,9 +1243,30 @@ function draw_main_menu()
 
     local death_message = death_status .. death_greeting .. death_tip .. play_again
 
-    print(death_message, -40 + active_player.x * 8 + 1, -20 + active_player.y * 8, 8)
-    print(death_message, -40 + active_player.x * 8, -20 + active_player.y * 8 + 1, 0)
-    print(death_message, -40 + active_player.x * 8, -20 + active_player.y * 8, 10)
+    print(death_message, -40 + active_view.x * 8 + 1, -20 + active_view.y * 8, 8)
+    print(death_message, -40 + active_view.x * 8, -20 + active_view.y * 8 + 1, 0)
+    print(death_message, -40 + active_view.x * 8, -20 + active_view.y * 8, 10)
+end
+
+function draw_system_info()
+    if not stat_counter or costatus(stat_counter) == 'dead' then
+        stat_counter = cocreate(
+            function ()
+                memstat =
+                    stat(7) .. ' fps' .. '\n' ..
+                    'mem usage: ' .. flr(stat(0)/20.48 + 0.5) .. '%' .. '\n' ..
+                    'cpu usage: ' .. flr(stat(1)*100 + 0.5) .. '%'
+                for t = 1, 30 do
+                    yield()
+                end
+            end
+        )
+    end
+    coresume(stat_counter)
+    
+    print(memstat, active_view.x * 8 - 59, active_view.y * 8 + 63 - 18, 4)
+    print(memstat, active_view.x * 8 - 60, active_view.y * 8 + 63 - 17, 0)
+    print(memstat, active_view.x * 8 - 60, active_view.y * 8 + 63 - 18, 10)
 end
 __gfx__
 7000000812ffff21123ff321ffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8888ffffaa77ffffffff1115ffffffffffff1155ffffff

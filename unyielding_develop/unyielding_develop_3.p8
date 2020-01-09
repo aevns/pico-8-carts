@@ -3,20 +3,29 @@ version 16
 __lua__
 -- utility --
 
--- inheritance system --
+-- basic inheritance system --
 class = {}
+
+function class:on_new()
+end
 
 function class:new(instance)
     local instance = instance or {}
     local instance_mt = {}
     instance_mt.__index = self
-    return setmetatable(instance, instance_mt)
+    setmetatable(instance, instance_mt)
+	instance:on_new()
+	return instance
 end
 
 function class:set(values)
     for k, v in pairs(values) do
         self[k] = v
     end
+end
+
+function class:parent()
+    return getmetatable(self).__index
 end
 
 function class:is_child_of(instance)
@@ -30,21 +39,67 @@ function class:is_child_of(instance)
     return false
 end
 
+-- persistent state handling --
+persistent_state = class:new({
+    state_addr = nil;
+})
+
+function persistent_state:set(state)
+    state = state or 1
+    poke(state_addr, state)
+end
+
+function persistent_state:toggle()
+    poke(state_addr, 1 - peek(state_addr))
+end
+
+function persistent_state:get()
+    peek(state_addr)
+end
+
 -- input --
-input = {0,0,0,0,0,0}
+input = class:new({
+    state = {0,0,0,0,0,0}
+})
 
-function btnd(i)
-    return btn(i) and not input[i + 1]
+function input:btnd(i)
+    return btn(i) and not self.state[i + 1]
 end
 
-function btnu(i)
-    return not btn(i) and input[i + 1]
+function input:btnu(i)
+    return not btn(i) and self.state[i + 1]
 end
 
-function late_update_input()
+function input:update()
     for i=0, 6 do
-        input[i + 1] = btn(i)
+        self.state[i + 1] = btn(i)
     end
+end
+
+-- camera definition --
+view = class:new({
+    target = nil,
+    x = 0,
+    y = 0,
+    x_buffer = {},
+    y_buffer = {},
+    smoothness = 10,
+    delay = 25,
+    frame_index = 0
+})
+
+function view:update()
+    self.frame_index += 1
+    local frame = 1 + self.frame_index%self.delay
+    local old_frame = 1 + (self.frame_index - self.smoothness)%self.delay
+
+    self.x -= (self.x_buffer[old_frame] or 0) / self.smoothness
+    self.x_buffer[old_frame] = self.target.x
+    self.x += (self.x_buffer[frame] or 0) / self.smoothness
+
+    self.y -= (self.y_buffer[old_frame] or 0) / self.smoothness
+    self.y_buffer[old_frame] = self.target.y
+    self.y += (self.y_buffer[frame] or 0) / self.smoothness
 end
 
 -- table checks --
@@ -58,6 +113,7 @@ function contains(table, item)
 end
 
 -- entity overlap detection --
+-- returns true if square a and square b overlap
 function overlapping(a, b)
     local a_size = a.size or 1
     local b_size = b.size or 1
@@ -107,18 +163,18 @@ end
 
 -- approximate normal sample with mean 0
 function rnd_nrml(std)
-    local x = -3*std
+    local x = -3 * std
     for i = 1, 3 do
-        x += rnd(std*2)
+        x += rnd(std * 2)
     end
     return x
 end
 -->8
 -- maneuvers --
-
+maneuver = class:new()
 -- actions --
 
-action = class:new({
+action = maneuver:new({
     sprite = nil,
     move_speed = 0,
     timing = {0, 0, 0, 0},
@@ -141,6 +197,7 @@ bash = action:new()
 bash_2 = action:new()
 
 -- base action definitions --
+
 stunned:set({
     sound = 5,
     timing = {0, 15, 0, 0},
@@ -242,7 +299,7 @@ bash_2:set({
 })
 
 -- stances --
-stance = class:new({
+stance = maneuver:new({
     aura = nil,
     move_speed = nil,
     duration = 1,
@@ -418,6 +475,9 @@ golem_attack:set({
 -->8
 -- agents --
 agent = class:new({
+    active_agents = {},
+    active_bosses = {},
+
     sprite = 16,
     size = 1,
     sprite_offset = -1/4,
@@ -439,8 +499,16 @@ agent = class:new({
 
     base_stance = default_stance,
     state = nil,
-    act_time = 0
+    act_time = 0,
+    tier = 1
 })
+
+function agent:on_new()
+    add(agent.active_agents, self)
+    if (self.tier == 3) then
+        add(agent.active_bosses, self)
+    end
+end
 
 function agent:execute(maneuver)
     if not maneuver or maneuver == self.base_stance then
@@ -510,7 +578,7 @@ function agent:action(maneuver)
             effect.x = self.x + self.ax * (1 + self.size) / 2
             effect.y = self.y + self.ay * (1 + self.size) / 2
             add(active_effects, effect)
-            for ag in all(active_agents) do
+            for ag in all(agent.active_agents) do
                 if overlapping(effect, ag) and not contains(immune, ag) then
                     ag:take_hit(maneuver.damage, maneuver.force, maneuver.timing[3] - t)
                     add(immune, ag)
@@ -553,7 +621,7 @@ function agent:move_collide()
     self.y += self.speed * self.ay
 
     -- inter-agent soft collisions
-    for instance in all(active_agents) do
+    for instance in all(agent.active_agents) do
         if abs(instance.x - self.x) < (instance.collider_size + self.collider_size) / 2 and
             abs(instance.y - self.y) < (instance.collider_size + self.collider_size) / 2 and
             instance ~= self
@@ -612,9 +680,9 @@ function agent:collision_test(x, y)
     -- return ideal nearby location if space is not free
     -- chooses the nearest free space that isn't forward
     -- there's probably a more efficient way
-    goodness = 0
-    goodx = nil
-    goody = nil
+    local goodness = 0
+    local goodx = nil
+    local goody = nil
     for i= -1, 1 do
         for j= -1, 1 do
             if (
@@ -642,13 +710,8 @@ function agent:take_hit(damage, force, atk_frames)
             self.hp -= damage - self.defense
         end
         if self.hp <= 0 then
-
-            del(active_npcs, instance)
-            del(active_agents, self)
-            self.state = nil
-            if self == active_player then
-                init_menu()
-            end
+            del(agent.active_agents, self)
+            del(agent.active_bosses, self)
         elseif force > self.stability then
             self.act_time = 0
             self.state = cocreate(
@@ -672,6 +735,7 @@ end
 
 shade = agent:new({
     sprite = 21,
+    tier = 2
 })
 
 skeleton = agent:new({
@@ -712,18 +776,28 @@ golem = agent:new({
     defense = 1,
     base_speed = 1/32,
     base_stance = golem_stance,
+    tier = 3
 })
-
--- agent function overrides --
 -->8
 -- controllers --
 
--- player controller--
-player_controller = class:new({
+controller = class:new({
+    active_controllers = {},
     agent = nil
 })
 
+function controller:on_new()
+    add(controller.active_controllers, self)
+end
+
+-- player controller--
+player_controller = controller:new()
+
 function player_controller:update()
+    if self.agent.hp <= 0 then
+        del(controller.active_controllers, self)
+        return
+    end
     if not self.agent.state then
         self.agent.state = cocreate(
             function()
@@ -733,9 +807,9 @@ function player_controller:update()
     end
 
     self.agent.attack_ready = btn(4)
-    self.agent.attack = btnu(4)
     self.agent.evade_ready = btn(5)
-    self.agent.evade = btnu(5)
+    self.agent.attack = active_input.btnu(4)
+    self.agent.evade = active_input.btnu(5)
 
     local x = (btn(1) and 1 or 0) - (btn(0) and 1 or 0)
     local y = (btn(3) and 1 or 0) - (btn(2) and 1 or 0)
@@ -745,8 +819,7 @@ function player_controller:update()
 end
 
 -- npc controller --
-npc_controller = class:new({
-    agent = nil,
+npc_controller = controller:new({
     foes = {},
     target = nil,
     active_target = nil,
@@ -767,18 +840,11 @@ npc_controller = class:new({
 })
 setmetatable(npc_controller.foes, { __mode = 'v' })
 
-function update_npcs()
-    for instance in all(active_npcs) do
-        instance:update()
-    end
-end
-
 function npc_controller:update()
-    -- replace this part; gotta use better scoping
-    if not contains(active_agents, self.agent) then
-        del(active_npcs, self)
+    if self.agent.hp <= 0 then
+        del(controller.active_controllers, self)
+        return
     end
-
     if not self.agent.state then
         self.agent.state = cocreate(
         function()
@@ -827,6 +893,7 @@ function npc_controller:choose_maneuver()
             ) < self.attack_range or
             rnd(60) <= self.liveliness
         )
+    
     self.agent.attack_ready = act and rnd(60) <= self.tenacity
     self.agent.attack = act and rnd(60) <= self.aggression
     self.agent.evade_ready = act and rnd(60) <= self.discretion
@@ -835,61 +902,26 @@ end
 -->8
 -- game state --
 
--- persistent data handling --
-persistent_state = class:new({
-    state_addr = nil;
-})
-
-function persistent_state:set(state)
-    state = state or 1
-    poke(state_addr, state)
-end
-
-function persistent_state:toggle()
-    poke(state_addr, 1 - peek(state_addr))
-end
-
-function persistent_state:get()
-    peek(state_addr)
-end
-
 -- persistent states --
+
+-- 0 indicates active game state
+-- 1 indicates menu state
 game_state = persistent_state:new({
     state_addr = 0x4300
 })
 
+-- the number of attempted runs thus far
 run_number = persistent_state:new({
     state_addr = 0x4301
 })
 
+-- 0 indicates music off
+-- 1 indicates music on
 music_state = persistent_state:new({
     state_addr = 0x4302
 })
 
-view = class:new({
-    target = nil,
-    x = 0,
-    y = 0,
-    x_buffer = {},
-    y_buffer = {},
-    smoothness = 10,
-    delay = 25,
-    frame_index = 0
-})
-
-function view:update()
-    self.frame_index += 1
-    local frame = 1 + self.frame_index%self.delay
-    local old_frame = 1 + (self.frame_index - self.smoothness)%self.delay
-
-    self.x -= (self.x_buffer[old_frame] or 0) / self.smoothness
-    self.x_buffer[old_frame] = self.target.x
-    self.x += (self.x_buffer[frame] or 0) / self.smoothness
-
-    self.y -= (self.y_buffer[old_frame] or 0) / self.smoothness
-    self.y_buffer[old_frame] = self.target.y
-    self.y += (self.y_buffer[frame] or 0) / self.smoothness
-end
+active_input = input:new()
 
 -- initialization --
 
@@ -904,12 +936,13 @@ function gameplay_init()
     frame_count = 0
     game_state:set(1)
 
-    active_npcs = spawn_all_npcs()
     active_player = spawn_player(21, 12)
+    spawn_all_npcs()
+
     active_view = view:new({
         target = active_player.agent
     })
-
+    
     active_effects = {}
 
     if music_state:get() then
@@ -930,7 +963,7 @@ end
 function menu_init()
     frame_count = 0
     game_state:set(0)
-    if music_state:get() == 1 then
+    if music_state:get() then
     	music(9, 2000, 12)
   	else
   		music(-1, 0, 0)
@@ -943,41 +976,38 @@ function spawn_player(x, y)
 end
 
 function spawn_all_npcs()
-    local npcs
-    for k,v in pairs(spawn_agents(shade, npc_controller)) do add(npcs, v) end
-    for k,v in pairs(spawn_agents(skeleton, npc_controller)) do add(npcs, v) end
-    for k,v in pairs(spawn_agents(knight, npc_controller)) do add(npcs, v) end
-    for k,v in pairs(spawn_agents(giant_bat, npc_controller)) do add(npcs, v) end
-    for k,v in pairs(spawn_agents(skulltula, npc_controller)) do add(npcs, v) end
-    for k,v in pairs(spawn_agents(golem, npc_controller)) do add(npcs, v) end
-    return npcs
+    spawn_agents(shade, npc_controller)
+    spawn_agents(skeleton, npc_controller)
+    spawn_agents(knight, npc_controller)
+    spawn_agents(giant_bat, npc_controller)
+    spawn_agents(skulltula, npc_controller)
+    spawn_agents(golem, npc_controller)
 end
 
 function spawn_agents(base_agent, base_controller)
-    local k_controllers = {}
     for y = 0, 127 do
         for x = 0, 127 do
             if (mget(x, y) == base_agent.sprite) then
+                -- add a new agent at spawn point
                 local agent_instance = base_agent:new({
                     x = x + 0.5,
                     y = y + 0.5
                 })
-                -- todo: create npc subtypes
+                -- create a controller for the agent
                 local controller_instance = base_controller:new({
                     agent = agent_instance
                 })
-                add(k_controllers, controller_instance)
+                -- replace the spawn point sprite
                 mset(x, y, 96)
             end
         end
     end
-    return k_controllers
 end
 
 -- menu items --
 menuitem( 1, "toggle music",
     function()
-        music_state:toggle();
+        music_state:toggle()
         if music_state:get() then
             music(0, 1000, 3)
         else
@@ -1000,7 +1030,7 @@ function _update60()
     end
 
     -- late update
-    late_update_input()
+    active_input:update()
 end
 
 function menu_update()
@@ -1011,10 +1041,15 @@ function menu_update()
 end
 
 function gameplay_update()
-    -- update
-    active_player:update()
-    for instance in all(active_npcs) do
+    -- update the active player first (make sure active_controllers is ordered correctly)
+    -- then update all other agents
+    for instance in all(controller.active_controllers) do
         instance:update()
+    end
+    
+    if active_player.hp <= 0 or #(agent.active_bosses) <= 0 then
+        game_state:set(0)
+        init_menu()
     end
 end
 -->8
@@ -1051,14 +1086,14 @@ function draw_agents()
     pal()
     palt(0, false)
     palt(15, true)
-    for npc in all(active_npcs) do
+    for npc in all(controller.active_controllers) do
         npc.agent:draw_aura()
     end
     
     pal()
     palt(0, false)
     palt(15, true)
-    for npc in all(active_npcs) do
+    for npc in all(controller.active_controllers) do
         npc.agent:draw()
     end
 end
@@ -1221,12 +1256,12 @@ function draw_main_menu()
     srand(active_view.x)
 
     local death_status = (frame_count > 60) and (
-        (active_miniboss[1] == nil) and "victory, for now.\nbut debris seems to\nbe blocking your path..."
+        (active_bosses == nil) and "victory, for now.\nbut debris seems to\nbe blocking your path..."
         or "you died."
     ) or ""
 
     local death_greeting = (frame_count > 120) and (
-        (active_miniboss[1] == nil) and "\nthanks for playing!"
+        (#active_bosses == 0) and "\nthanks for playing!"
         or (rnd(1) > 0.5) and "\noh, by the way,"
         or (rnd(1) > 0.5) and "\nyou know what..."
         or (rnd(1) > 0.75) and "\nuhh..."
@@ -1234,7 +1269,7 @@ function draw_main_menu()
     ) or ""
 
     local death_tip = (frame_count > 160) and (
-        (active_miniboss[1] == nil) and "\n♥"
+        (#active_bosses == 0) and "\n♥"
         or (peek(0x4300) == 1) and "\ntry blocking by\nreleasing 🅾️ while\nholding down ❎."
         or (peek(0x4300) == 2) and "\nhold 🅾️ to perform\na dash attack."
         or (peek(0x4300) == 3) and "\nrelease ❎ while\nholding 🅾️ to\nperform a bash."

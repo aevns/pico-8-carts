@@ -3,7 +3,7 @@ version 16
 __lua__
 -- utility --
 
--- inheritance system --
+-- basic inheritance system --
 class = {}
 
 function class:new(instance)
@@ -41,7 +41,7 @@ function btnu(i)
     return not btn(i) and input[i + 1]
 end
 
-function late_update_input()
+function input_update()
     for i=0, 6 do
         input[i + 1] = btn(i)
     end
@@ -107,18 +107,18 @@ end
 
 -- approximate normal sample with mean 0
 function rnd_nrml(std)
-    local x = -3*std
+    local x = -3 * std
     for i = 1, 3 do
-        x += rnd(std*2)
+        x += rnd(std * 2)
     end
     return x
 end
 -->8
 -- maneuvers --
-
+maneuver = class:new()
 -- actions --
 
-action = class:new({
+action = maneuver:new({
     sprite = nil,
     move_speed = 0,
     timing = {0, 0, 0, 0},
@@ -141,6 +141,7 @@ bash = action:new()
 bash_2 = action:new()
 
 -- base action definitions --
+
 stunned:set({
     sound = 5,
     timing = {0, 15, 0, 0},
@@ -242,7 +243,7 @@ bash_2:set({
 })
 
 -- stances --
-stance = class:new({
+stance = maneuver:new({
     aura = nil,
     move_speed = nil,
     duration = 1,
@@ -417,6 +418,11 @@ golem_attack:set({
 })
 -->8
 -- agents --
+
+active_agents = nil
+active_player = nil
+active_bosses = nil
+
 agent = class:new({
     sprite = 16,
     size = 1,
@@ -441,6 +447,15 @@ agent = class:new({
     state = nil,
     act_time = 0
 })
+
+function agent:create(instance, is_boss)
+    local ag = self:new(instance)
+    add(active_agents, ag)
+    if is_boss then
+        add(active_bosses, ag)
+    end
+    return ag
+end
 
 function agent:execute(maneuver)
     if not maneuver or maneuver == self.base_stance then
@@ -612,9 +627,9 @@ function agent:collision_test(x, y)
     -- return ideal nearby location if space is not free
     -- chooses the nearest free space that isn't forward
     -- there's probably a more efficient way
-    goodness = 0
-    goodx = nil
-    goody = nil
+    local goodness = 0
+    local goodx = nil
+    local goody = nil
     for i= -1, 1 do
         for j= -1, 1 do
             if (
@@ -642,13 +657,8 @@ function agent:take_hit(damage, force, atk_frames)
             self.hp -= damage - self.defense
         end
         if self.hp <= 0 then
-
-            del(active_npcs, instance)
             del(active_agents, self)
-            self.state = nil
-            if self == active_player then
-                init_menu()
-            end
+            del(active_bosses, self)
         elseif force > self.stability then
             self.act_time = 0
             self.state = cocreate(
@@ -717,13 +727,20 @@ golem = agent:new({
 -- agent function overrides --
 -->8
 -- controllers --
+active_controllers = nil
 
--- player controller--
-player_controller = class:new({
+controller = class:new({
     agent = nil
 })
 
+-- player controller--
+player_controller = controller:new()
+
 function player_controller:update()
+    if self.hp <= 0 then
+        del(active_controllers, self)
+        return
+    end
     if not self.agent.state then
         self.agent.state = cocreate(
             function()
@@ -731,11 +748,11 @@ function player_controller:update()
             end
         )
     end
-
+    
     self.agent.attack_ready = btn(4)
-    self.agent.attack = btnu(4)
+    self.agent.attack = active_input.btnu(4)
     self.agent.evade_ready = btn(5)
-    self.agent.evade = btnu(5)
+    self.agent.evade = active_input.btnu(5)
 
     local x = (btn(1) and 1 or 0) - (btn(0) and 1 or 0)
     local y = (btn(3) and 1 or 0) - (btn(2) and 1 or 0)
@@ -745,8 +762,7 @@ function player_controller:update()
 end
 
 -- npc controller --
-npc_controller = class:new({
-    agent = nil,
+npc_controller = controller:new({
     foes = {},
     target = nil,
     active_target = nil,
@@ -767,18 +783,11 @@ npc_controller = class:new({
 })
 setmetatable(npc_controller.foes, { __mode = 'v' })
 
-function update_npcs()
-    for instance in all(active_npcs) do
-        instance:update()
-    end
-end
-
 function npc_controller:update()
-    -- replace this part; gotta use better scoping
-    if not contains(active_agents, self.agent) then
-        del(active_npcs, self)
+    if self.agent.hp <= 0 then
+        del(active_controllers, self)
+        return
     end
-
     if not self.agent.state then
         self.agent.state = cocreate(
         function()
@@ -827,6 +836,7 @@ function npc_controller:choose_maneuver()
             ) < self.attack_range or
             rnd(60) <= self.liveliness
         )
+    
     self.agent.attack_ready = act and rnd(60) <= self.tenacity
     self.agent.attack = act and rnd(60) <= self.aggression
     self.agent.evade_ready = act and rnd(60) <= self.discretion
@@ -854,18 +864,24 @@ function persistent_state:get()
 end
 
 -- persistent states --
+-- 0 indicates active game state
+-- 1 indicates menu state
 game_state = persistent_state:new({
     state_addr = 0x4300
 })
 
+-- the number of attempted runs thus far
 run_number = persistent_state:new({
     state_addr = 0x4301
 })
 
+-- 0 indicates music off
+-- 1 indicates music on
 music_state = persistent_state:new({
     state_addr = 0x4302
 })
 
+-- camera definition --
 view = class:new({
     target = nil,
     x = 0,
@@ -904,12 +920,27 @@ function gameplay_init()
     frame_count = 0
     game_state:set(1)
 
-    active_npcs = spawn_all_npcs()
     active_player = spawn_player(21, 12)
+    active_bosses = spawn_all_bosses()
+    local active_npcs = spawn_all_npcs()
+    
+    active_controllers = {active_player}
+    active_agents = {active_player.agent}
+
+    for _,v in pairs(active_bosses) do
+        add(active_controllers, v)
+        add(active_agents, v.agent)
+    end
+
+    for _,v in pairs(active_npcs) do
+        add(active_controllers, v)
+        add(active_agents, v.agent)
+    end
+
     active_view = view:new({
         target = active_player.agent
     })
-
+    
     active_effects = {}
 
     if music_state:get() then
@@ -942,14 +973,20 @@ function spawn_player(x, y)
     return player_controller:new({agent = p})
 end
 
+function spawn_all_bosses()
+    local bosses = {}
+    for _,v in pairs(spawn_agents(golem, npc_controller)) do add(bosses, v) end
+    return bosses
+end
+
 function spawn_all_npcs()
-    local npcs
-    for k,v in pairs(spawn_agents(shade, npc_controller)) do add(npcs, v) end
-    for k,v in pairs(spawn_agents(skeleton, npc_controller)) do add(npcs, v) end
-    for k,v in pairs(spawn_agents(knight, npc_controller)) do add(npcs, v) end
-    for k,v in pairs(spawn_agents(giant_bat, npc_controller)) do add(npcs, v) end
-    for k,v in pairs(spawn_agents(skulltula, npc_controller)) do add(npcs, v) end
-    for k,v in pairs(spawn_agents(golem, npc_controller)) do add(npcs, v) end
+    local npcs = {}
+    -- spawn all agents of the given types, with default npc controllers
+    for _,v in pairs(spawn_agents(shade, npc_controller)) do add(npcs, v) end
+    for _,v in pairs(spawn_agents(skeleton, npc_controller)) do add(npcs, v) end
+    for _,v in pairs(spawn_agents(knight, npc_controller)) do add(npcs, v) end
+    for _,v in pairs(spawn_agents(giant_bat, npc_controller)) do add(npcs, v) end
+    for _,v in pairs(spawn_agents(skulltula, npc_controller)) do add(npcs, v) end
     return npcs
 end
 
@@ -958,15 +995,17 @@ function spawn_agents(base_agent, base_controller)
     for y = 0, 127 do
         for x = 0, 127 do
             if (mget(x, y) == base_agent.sprite) then
+                -- add a new agent at spawn point
                 local agent_instance = base_agent:new({
                     x = x + 0.5,
                     y = y + 0.5
                 })
-                -- todo: create npc subtypes
+                -- create a controller for the agent
                 local controller_instance = base_controller:new({
                     agent = agent_instance
                 })
                 add(k_controllers, controller_instance)
+                -- replace the spawn point sprite
                 mset(x, y, 96)
             end
         end
@@ -1000,7 +1039,7 @@ function _update60()
     end
 
     -- late update
-    late_update_input()
+    input_update()
 end
 
 function menu_update()
@@ -1011,10 +1050,18 @@ function menu_update()
 end
 
 function gameplay_update()
-    -- update
+    -- update the active player first
     active_player:update()
-    for instance in all(active_npcs) do
-        instance:update()
+    -- then update all other agents
+    for instance in all(active_controllers) do
+        if (instance ~= active_player) then
+            instance:update()
+        end
+    end
+    
+    if active_player.hp <= 0 or #active_bosses <= 0 then
+        game_state:set(0)
+        init_menu()
     end
 end
 -->8
@@ -1051,14 +1098,14 @@ function draw_agents()
     pal()
     palt(0, false)
     palt(15, true)
-    for npc in all(active_npcs) do
+    for npc in all(active_controllers) do
         npc.agent:draw_aura()
     end
     
     pal()
     palt(0, false)
     palt(15, true)
-    for npc in all(active_npcs) do
+    for npc in all(active_controllers) do
         npc.agent:draw()
     end
 end
@@ -1221,12 +1268,12 @@ function draw_main_menu()
     srand(active_view.x)
 
     local death_status = (frame_count > 60) and (
-        (active_miniboss[1] == nil) and "victory, for now.\nbut debris seems to\nbe blocking your path..."
+        (active_bosses == nil) and "victory, for now.\nbut debris seems to\nbe blocking your path..."
         or "you died."
     ) or ""
 
     local death_greeting = (frame_count > 120) and (
-        (active_miniboss[1] == nil) and "\nthanks for playing!"
+        (#active_bosses == 0) and "\nthanks for playing!"
         or (rnd(1) > 0.5) and "\noh, by the way,"
         or (rnd(1) > 0.5) and "\nyou know what..."
         or (rnd(1) > 0.75) and "\nuhh..."
@@ -1234,7 +1281,7 @@ function draw_main_menu()
     ) or ""
 
     local death_tip = (frame_count > 160) and (
-        (active_miniboss[1] == nil) and "\n♥"
+        (#active_bosses == 0) and "\n♥"
         or (peek(0x4300) == 1) and "\ntry blocking by\nreleasing 🅾️ while\nholding down ❎."
         or (peek(0x4300) == 2) and "\nhold 🅾️ to perform\na dash attack."
         or (peek(0x4300) == 3) and "\nrelease ❎ while\nholding 🅾️ to\nperform a bash."

@@ -1,0 +1,82 @@
+pico-8 cartridge // http://www.pico-8.com
+version 16
+__lua__
+-- basic inheritance system --
+class = {}
+
+function class:on_new()
+end
+
+function class:new(instance)
+    local instance = instance or {}
+    local instance_mt = {}
+    instance_mt.__index = self
+    setmetatable(instance, instance_mt)
+	instance:on_new()
+	return instance
+end
+
+function class:set(values)
+    for k, v in pairs(values) do
+        self[k] = v
+    end
+end
+
+function class:parent()
+    return getmetatable(self).__index
+end
+
+function class:is_child_of(instance)
+    local ancestor = self
+    while getmetatable(ancestor) do
+        if getmetatable(ancestor).__index == instance then
+            return true
+        end
+        ancestor = getmetatable(ancestor).__index
+    end
+    return false
+end
+-->8
+-- inheritance testing --
+classdef = class:new({
+    a = 1,
+    b = 0
+})
+
+function classdef:on_new()
+    self.b += 2 
+end
+
+function classdef:draw()
+    spr(classdef.a,self.b * 8,0)
+end
+-->8
+-- execution --
+ent1 = classdef:new({a=2})
+ent2 = classdef:new({b=2})
+
+timer = 0
+
+function _update60()
+    c = 1
+end
+
+function _draw()
+    cls()
+    ent1:draw()
+    ent2:draw()
+    timer = timer + 1
+    
+    if (timer > 240) then
+        classdef.a = 2
+    end
+end
+__gfx__
+0000000000000000000bb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000008888880000bb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0070070008000080000bb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0007700008000080bbbbbbbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0007700008000080bbbbbbbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0070070008000080000bb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000008888880000bb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000bb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

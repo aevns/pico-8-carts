@@ -12,7 +12,7 @@ function _update60()
     end
 
     -- late update
-    late_update_input()
+    active_input:update()
 end
 
 function menu_update()
@@ -23,9 +23,14 @@ function menu_update()
 end
 
 function gameplay_update()
-    -- update
-    active_player:update()
-    for instance in all(active_npcs) do
+    -- update the active player first (make sure active_controllers is ordered correctly)
+    -- then update all other agents
+    for instance in all(controller.active_controllers) do
         instance:update()
+    end
+    
+    if active_player.hp <= 0 or #(agent.active_bosses) <= 0 then
+        game_state:set(0)
+        init_menu()
     end
 end

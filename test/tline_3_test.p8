@@ -1,5 +1,5 @@
 pico-8 cartridge // http://www.pico-8.com
-version 33
+version 41
 __lua__
 
 -->8
@@ -113,6 +113,8 @@ function _draw()
     cls()reset()
     palt(0, false)
     pal(custom_palate,1)
+    --temp editor solution
+    poke(0x5f2e,1)
     
     lighting(frame \ 1)
     

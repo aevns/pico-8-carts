@@ -1,6 +1,6 @@
 import numpy as np
-import scipy.optimize as opt
-import scipy.integrate as integrate
+#import scipy.optimize as opt
+#import scipy.integrate as integrate
 
 class Color:
     _linear_srgb : np.ndarray = np.array([0, 0, 0])

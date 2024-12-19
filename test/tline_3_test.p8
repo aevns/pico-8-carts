@@ -1,17 +1,17 @@
 pico-8 cartridge // http://www.pico-8.com
-version 41
+version 42
 __lua__
 
 -->8
 -- custom lighting --
-custom_palate = ({
+custom_palette = ({
     [0] = 0, 129, 130, 3,
     4, 5, 6, 7,
     8, 9 + 128, 10, 11,
     131, 140, 132, 134
     })
 
-gray_palate = ({
+gray_palette = ({
     [0]=0, 0, 133, 5,
     134, 5, 6, 7,
     134, 134, 7, 134,
@@ -27,7 +27,7 @@ light_level_5 = {[0]=0, 1, 2, 3, 9, 15, 7, 7, 8, 9, 10, 11, 12, 13, 4, 15}
 light_level_6 = {[0]=0, 1, 2, 11, 9, 15, 7, 7, 8, 9, 10, 11, 12, 13, 4, 7}
 light_level_7 = {[0]=0, 13, 14, 11, 9, 7, 7, 7, 8, 9, 10, 11, 6, 13, 9, 7}
 
-light_palates = ({
+light_palettes = ({
     [0] = light_level_0, light_level_1,
     light_level_2, light_level_3,
     light_level_4, light_level_5,
@@ -90,7 +90,7 @@ function lighting(seed)
         srand(seed)
     end
     for ll = 0, 4 do
-        pal(light_palates[ll])
+        pal(light_palettes[ll])
         draw_aura(63 * (1 - ll / 6))
     end
 end
@@ -112,7 +112,7 @@ end
 function _draw()
     cls()reset()
     palt(0, false)
-    pal(custom_palate,1)
+    pal(custom_palette,1)
     --temp editor solution
     poke(0x5f2e,1)
     
@@ -128,8 +128,10 @@ function waves()
 		for y = cam_pos.y \1 - 5, cam_pos.y \1 + 6 do
 			local cell = mget(x, y)
 			if cell > 79 and cell < 85 then
-				local mov = rnd(4)\1 - 1
-				if mov > 0 and cell < 84 then
+				local mov = rnd(24)\1 - 1
+				if mov > 2 then
+				 
+				elseif mov > 0 and cell < 84 then
 					mset(x, y, cell + 1)
 				elseif mov < 0 and cell > 80 then
 					mset(x, y, cell - 1)
